@@ -274,7 +274,7 @@ def main() -> None:
         raise SystemExit("No VTU files left after applying index filters")
 
     rng = np.random.default_rng(args.seed)
-    max_points = args.max_points if args.max_points and args.max_points > 0 else None
+    max_points = args.max_points if args.max_points > 0 else None
 
     snapshots = []
     time_values = []
@@ -352,7 +352,8 @@ def main() -> None:
         dt=dt,
     )
 
-    last_time = max(t for t in time_values if t is not None) if any(t is not None for t in time_values) else files[-1][0] * dt
+    valid_times = [t for t in time_values if t is not None]
+    last_time = max(valid_times) if valid_times else files[-1][0] * dt
     future_times = [last_time + dt * step for step in range(1, args.predict_steps + 1)]
 
     if mesh_template is None:
