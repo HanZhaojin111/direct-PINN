@@ -106,10 +106,12 @@ def gradient(outputs: torch.Tensor, inputs: torch.Tensor) -> torch.Tensor:
 
 
 def normalize(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
+    std = torch.clamp(std, min=1e-8)
     return (x - mean) / std
 
 
 def denormalize(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
+    std = torch.clamp(std, min=1e-8)
     return x * std + mean
 
 
@@ -175,6 +177,8 @@ def train_pinn(
     mse = nn.MSELoss()
 
     model.train()
+    if len(loader) == 0:
+        raise SystemExit("No training samples available")
     for epoch in range(1, epochs + 1):
         total_loss = 0.0
         for xyt_batch, uvp_batch in loader:
@@ -195,7 +199,7 @@ def train_pinn(
             total_loss += loss.item()
 
         if log_every > 0 and epoch % log_every == 0:
-            avg_loss = total_loss / max(1, len(loader))
+            avg_loss = total_loss / len(loader)
             print(f"Epoch {epoch:6d} | Loss {avg_loss:.6e}")
 
 
@@ -273,7 +277,6 @@ def main() -> None:
     if not files:
         raise SystemExit("No VTU files left after applying index filters")
 
-    rng = np.random.default_rng(args.seed)
     max_points = args.max_points if args.max_points > 0 else None
 
     snapshots = []
@@ -300,7 +303,7 @@ def main() -> None:
         if max_points is None or xy.shape[0] <= max_points:
             sample_idx = np.arange(xy.shape[0])
         else:
-            sample_idx = rng.choice(xy.shape[0], size=max_points, replace=False)
+            sample_idx = np.random.choice(xy.shape[0], size=max_points, replace=False)
         xy_sample = xy[sample_idx]
         u_sample = velocity[sample_idx, 0]
         v_sample = velocity[sample_idx, 1]
@@ -352,6 +355,8 @@ def main() -> None:
         dt=dt,
     )
 
+    if not files:
+        raise SystemExit("No VTU files loaded")
     valid_times = [t for t in time_values if t is not None]
     last_time = max(valid_times) if valid_times else files[-1][0] * dt
     future_times = [last_time + dt * step for step in range(1, args.predict_steps + 1)]
