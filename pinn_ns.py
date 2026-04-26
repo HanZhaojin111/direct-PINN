@@ -8,6 +8,8 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
+EPSILON = 1e-8
+
 try:
     import meshio
 except ImportError as exc:
@@ -106,12 +108,12 @@ def gradient(outputs: torch.Tensor, inputs: torch.Tensor) -> torch.Tensor:
 
 
 def normalize(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
-    std = torch.clamp(std, min=1e-8)
+    std = torch.clamp(std, min=EPSILON)
     return (x - mean) / std
 
 
 def denormalize(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
-    std = torch.clamp(std, min=1e-8)
+    std = torch.clamp(std, min=EPSILON)
     return x * std + mean
 
 
@@ -316,9 +318,9 @@ def main() -> None:
     uvp_all = np.vstack(uvp_list).astype(np.float32)
 
     x_mean = torch.from_numpy(xyt_all.mean(axis=0, keepdims=True))
-    x_std = torch.from_numpy(xyt_all.std(axis=0, keepdims=True) + 1e-8)
+    x_std = torch.from_numpy(xyt_all.std(axis=0, keepdims=True) + EPSILON)
     y_mean = torch.from_numpy(uvp_all.mean(axis=0, keepdims=True))
-    y_std = torch.from_numpy(uvp_all.std(axis=0, keepdims=True) + 1e-8)
+    y_std = torch.from_numpy(uvp_all.std(axis=0, keepdims=True) + EPSILON)
 
     dataset = TensorDataset(torch.from_numpy(xyt_all), torch.from_numpy(uvp_all))
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=False)
@@ -355,8 +357,6 @@ def main() -> None:
         dt=dt,
     )
 
-    if not files:
-        raise SystemExit("No VTU files loaded")
     valid_times = [t for t in time_values if t is not None]
     last_time = max(valid_times) if valid_times else files[-1][0] * dt
     future_times = [last_time + dt * step for step in range(1, args.predict_steps + 1)]
