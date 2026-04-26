@@ -59,7 +59,7 @@ def load_vtu_snapshot(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, f
         velocity = velocity.reshape(-1, 1)
     if velocity.shape[1] < 2:
         raise ValueError(f"Velocity needs at least 2 components in {path}")
-    velocity = velocity[:, :3] if velocity.shape[1] >= 3 else np.pad(velocity, ((0, 0), (0, 3 - velocity.shape[1])))
+    velocity = velocity[:, :2]
 
     time_value = None
     if time_key is not None:
@@ -67,7 +67,7 @@ def load_vtu_snapshot(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, f
         if time_array.size > 0:
             time_value = float(time_array[0])
 
-    return points[:, :2], pressure, velocity[:, :2], time_value, mesh
+    return points[:, :2], pressure, velocity, time_value, mesh
 
 
 def infer_dt(times: list[float | None]) -> float | None:
