@@ -200,17 +200,27 @@ class Scaler:
         self.data_max = data_max.astype(np.float32)
         self.data_range = np.maximum(self.data_max - self.data_min, MIN_RANGE_THRESHOLD)
         self.scale = 2.0 / self.data_range
+        self._torch_cache: Dict[torch.device, Tuple[torch.Tensor, torch.Tensor]] = {}
 
     def transform(self, values: np.ndarray) -> np.ndarray:
         return (values - self.data_min) * self.scale - 1.0
 
     def transform_torch(self, values: torch.Tensor) -> torch.Tensor:
-        return (values - torch.from_numpy(self.data_min).to(values.device)) * torch.from_numpy(
-            self.scale
-        ).to(values.device) - 1.0
+        data_min_t, scale_t = self._torch_params(values.device)
+        return (values - data_min_t) * scale_t - 1.0
 
     def scale_factors(self, device: torch.device) -> torch.Tensor:
-        return torch.from_numpy(self.scale).to(device)
+        _, scale_t = self._torch_params(device)
+        return scale_t
+
+    def _torch_params(self, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
+        cached = self._torch_cache.get(device)
+        if cached is None:
+            data_min_t = torch.from_numpy(self.data_min).to(device)
+            scale_t = torch.from_numpy(self.scale).to(device)
+            cached = (data_min_t, scale_t)
+            self._torch_cache[device] = cached
+        return cached
 
 
 class MLP(nn.Module):
@@ -287,7 +297,7 @@ def sample_collocation(
 ) -> torch.Tensor:
     mins, maxs = bounds
     points = rng.uniform(mins, maxs, size=(n_points, 3)).astype(np.float32)
-    return torch.tensor(points, device=device)
+    return torch.from_numpy(points).to(device)
 
 
 def train_pinn(
@@ -370,7 +380,7 @@ def predict_future(
                 chunk = points[i : i + pred_batch_size]
                 t_col = np.full((chunk.shape[0], 1), t_value, dtype=np.float32)
                 xyt = np.hstack([chunk, t_col]).astype(np.float32)
-                xyt_t = torch.tensor(xyt, device=device)
+                xyt_t = torch.from_numpy(xyt).to(device)
                 pred = model(scaler.transform_torch(xyt_t)).cpu().numpy()
                 outputs.append(pred)
             pred_all = np.vstack(outputs)
@@ -413,7 +423,7 @@ def main() -> None:
     scaler = Scaler(data_min, data_max)
     bounds = (data_min, data_max)
 
-    dataset = TensorDataset(torch.tensor(xyt), torch.tensor(uvp))
+    dataset = TensorDataset(torch.from_numpy(xyt), torch.from_numpy(uvp))
     data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=False)
 
     model = MLP(3, 3, args.hidden_width, args.hidden_layers).to(device)
