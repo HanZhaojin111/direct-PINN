@@ -403,6 +403,8 @@ def predict_future(
 
 def main() -> None:
     args = parse_args()
+    if args.hidden_layers < 1:
+        raise ValueError("--hidden-layers must be >= 1.")
     set_seed(args.seed)
     device = torch.device(args.device or ("cuda" if torch.cuda.is_available() else "cpu"))
     rng = np.random.default_rng(args.seed)
