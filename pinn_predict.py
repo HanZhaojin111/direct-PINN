@@ -53,6 +53,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-pressure-key", default="pressure", help="Pressure key for outputs.")
     parser.add_argument("--save-model", default=None, help="Path to save trained model state_dict.")
     parser.add_argument("--pred-batch-size", type=int, default=16384, help="Batch size for prediction.")
+    parser.add_argument(
+        "--dt",
+        type=float,
+        default=None,
+        help="Override time step for prediction when insufficient time points are available.",
+    )
     return parser.parse_args()
 
 
@@ -187,6 +193,8 @@ def build_training_data(
 
 
 class Scaler:
+    """Scale inputs to [-1, 1], guarding zero ranges with MIN_RANGE_THRESHOLD."""
+
     def __init__(self, data_min: np.ndarray, data_max: np.ndarray) -> None:
         self.data_min = data_min.astype(np.float32)
         self.data_max = data_max.astype(np.float32)
@@ -341,11 +349,14 @@ def predict_future(
     pressure_key: str,
     pred_batch_size: int,
     device: torch.device,
+    dt_override: Optional[float],
 ) -> None:
     os.makedirs(output_dir, exist_ok=True)
     points = base_mesh.points[:, :2].astype(np.float32)
-    if len(times) < 2:
-        dt = 1.0
+    if dt_override is not None:
+        dt = dt_override
+    elif len(times) < 2:
+        raise ValueError("Need at least two time points to infer dt; pass --dt to override.")
     else:
         dt = float(np.median(np.diff(times)))
     start_t = float(times[-1])
@@ -438,6 +449,7 @@ def main() -> None:
         args.output_pressure_key,
         args.pred_batch_size,
         device,
+        args.dt,
     )
 
 
