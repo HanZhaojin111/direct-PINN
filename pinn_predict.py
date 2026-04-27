@@ -11,6 +11,9 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
+MESH_TOLERANCE = 1e-6
+MIN_RANGE_THRESHOLD = 1e-8
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -170,7 +173,7 @@ def build_training_data(
                 raise ValueError(
                     f"Mesh shape mismatch: expected {base_points.shape}, got {points.shape}"
                 )
-            if not np.allclose(base_points, points, atol=1e-6):
+            if not np.allclose(base_points, points, atol=MESH_TOLERANCE):
                 raise ValueError("Inconsistent mesh points across time steps.")
         points_sampled, outputs = sample_supervised_data(points, u, v, p, max_points, rng)
         t_col = np.full((points_sampled.shape[0], 1), times[idx], dtype=np.float32)
@@ -187,7 +190,7 @@ class Scaler:
     def __init__(self, data_min: np.ndarray, data_max: np.ndarray) -> None:
         self.data_min = data_min.astype(np.float32)
         self.data_max = data_max.astype(np.float32)
-        self.data_range = np.maximum(self.data_max - self.data_min, 1e-8)
+        self.data_range = np.maximum(self.data_max - self.data_min, MIN_RANGE_THRESHOLD)
         self.scale = 2.0 / self.data_range
 
     def transform(self, values: np.ndarray) -> np.ndarray:
