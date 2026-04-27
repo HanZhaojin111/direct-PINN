@@ -135,7 +135,7 @@ def sample_supervised_data(
     rng: np.random.Generator,
 ) -> Tuple[np.ndarray, np.ndarray]:
     total_points = points.shape[0]
-    if max_points is not None and max_points > 0 and total_points > max_points:
+    if max_points > 0 and total_points > max_points:
         idx = rng.choice(total_points, size=max_points, replace=False)
         points = points[idx]
         u = u[idx]
@@ -304,7 +304,7 @@ def train_pinn(
         for xyt_batch, uvp_batch in data_loader:
             xyt_batch = xyt_batch.to(device)
             uvp_batch = uvp_batch.to(device)
-            optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad()
             pred = model(scaler.transform_torch(xyt_batch))
             data_loss = torch.mean((pred - uvp_batch) ** 2)
 
