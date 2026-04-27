@@ -426,6 +426,8 @@ def main() -> None:
     bounds = (data_min, data_max)
 
     dataset = TensorDataset(torch.from_numpy(xyt), torch.from_numpy(uvp))
+    if len(dataset) == 0:
+        raise ValueError("No training samples available; check input data and sampling settings.")
     data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, drop_last=False)
 
     model = MLP(3, 3, args.hidden_width, args.hidden_layers).to(device)
