@@ -135,7 +135,7 @@ def sample_supervised_data(
     rng: np.random.Generator,
 ) -> Tuple[np.ndarray, np.ndarray]:
     total_points = points.shape[0]
-    if max_points and total_points > max_points:
+    if max_points is not None and max_points > 0 and total_points > max_points:
         idx = rng.choice(total_points, size=max_points, replace=False)
         points = points[idx]
         u = u[idx]
@@ -165,7 +165,11 @@ def build_training_data(
         if base_mesh is None:
             base_mesh = mesh
             base_points = points
-        elif base_points is not None and base_points.shape == points.shape:
+        elif base_points is not None:
+            if base_points.shape != points.shape:
+                raise ValueError(
+                    f"Mesh shape mismatch: expected {base_points.shape}, got {points.shape}"
+                )
             if not np.allclose(base_points, points, atol=1e-6):
                 raise ValueError("Inconsistent mesh points across time steps.")
         points_sampled, outputs = sample_supervised_data(points, u, v, p, max_points, rng)
@@ -315,7 +319,7 @@ def train_pinn(
             optimizer.step()
             epoch_loss += loss.item()
 
-        if log_every and epoch % log_every == 0:
+        if log_every > 0 and epoch % log_every == 0:
             avg_loss = epoch_loss / max(len(data_loader), 1)
             print(
                 f"Epoch {epoch}/{epochs} | loss={avg_loss:.6e} "
